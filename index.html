@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hostel Expense Tracker</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between">
+        
+        <!-- Header & Balance -->
+        <div class="bg-blue-600 text-white p-6 rounded-b-3xl shadow-md">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">Hostel Common Fund</h1>
+                <button id="editFundBtn" class="text-xs bg-blue-500 hover:bg-blue-400 px-2.5 py-1 rounded-lg transition">Edit Fund</button>
+            </div>
+            <p class="text-sm text-blue-100 mt-1">Shared Expense Manager</p>
+            
+            <div class="mt-6 bg-white text-gray-800 p-4 rounded-2xl shadow">
+                <p class="text-xs text-gray-500 uppercase font-semibold">Main Wallet Balance</p>
+                <h2 id="totalBalance" class="text-3xl font-extrabold text-blue-600 mt-1">Loading...</h2>
+            </div>
+        </div>
+
+        <!-- Expense List -->
+        <div class="p-4 flex-1 overflow-y-auto">
+            <h3 class="font-bold text-gray-700 mb-3">Recent Expenses</h3>
+            <div id="expenseList" class="space-y-3">
+                <p class="text-gray-400 text-sm text-center mt-6">Loading expenses...</p>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <div class="bg-white border-t p-4 rounded-t-3xl shadow-lg">
+            <h3 class="font-bold text-gray-700 mb-3 text-sm">Add New Expense</h3>
+            <form id="expenseForm" class="space-y-3">
+                <div class="flex gap-2">
+                    <input type="number" id="amount" placeholder="Amount (₹)" required
+                        class="w-1/2 p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="paidBy" class="w-1/2 p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Tanmay">Tanmay (Me)</option>
+                        <option value="Bhai">Bhai</option>
+                    </select>
+                </div>
+                <div>
+                    <input type="text" id="note" placeholder="What was this for? (e.g. Bazar)" required
+                        class="w-full p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" 
+                    class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition">
+                    Add Expense
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Firebase & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // আপনার ফায়ারবেস কনফিগারেশন
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwv7bNt8RpUFSfKf-1YtzcfPukP7So4",
+            authDomain: "hostelexpense-c5dd8.firebaseapp.com",
+            projectId: "hostelexpense-c5dd8",
+            storageBucket: "hostelexpense-c5dd8.firebasestorage.app",
+            messagingSenderId: "992900368817",
+            appId: "1:992900368817:web:ac8865f1685e8ec51c9590",
+            measurementId: "G-GDZCY7V7QP"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const balanceEl = document.getElementById('totalBalance');
+        const expenseListEl = document.getElementById('expenseList');
+        const expenseForm = document.getElementById('expenseForm');
+        const editFundBtn = document.getElementById('editFundBtn');
+
+        let currentBalance = 0;
+
+        // ১. ফায়ারবেস থেকে রিয়েল-টাইম ব্যালেন্স এবং খরচ লোড করা
+        async function initData() {
+            const walletRef = doc(db, "fund", "mainWallet");
+            
+            const docSnap = await getDoc(walletRef);
+            if (!docSnap.exists()) {
+                // প্রথমবার যদি ওয়ালেট না থাকে, ইউজারের কাছ থেকে অ্যামোন্ট চেয়ে নেব
+                let initialAmount = prompt("Enter initial Main Fund Amount (₹):", "3000");
+                initialAmount = initialAmount ? parseFloat(initialAmount) : 3000;
+                await setDoc(walletRef, { balance: initialAmount });
+            }
+
+            // রিয়েল-টাইম ব্যালেন্স আপডেট
+            onSnapshot(walletRef, (doc) => {
+                if (doc.exists()) {
+                    currentBalance = doc.data().balance;
+                    balanceEl.innerText = `₹ ${currentBalance.toFixed(2)}`;
+                }
+            });
+
+            // রিয়েল-টাইম খরচ লিস্ট আপডেট
+            const q = query(collection(db, "expenses"), orderBy("timestamp", "desc"));
+            onSnapshot(q, (snapshot) => {
+                if (snapshot.empty) {
+                    expenseListEl.innerHTML = `<p class="text-gray-400 text-sm text-center mt-6">No expenses added yet.</p>`;
+                    return;
+                }
+
+                expenseListEl.innerHTML = '';
+                snapshot.forEach((docItem) => {
+                    const item = docItem.data();
+                    expenseListEl.innerHTML += `
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border">
+                            <div>
+                                <p class="font-bold text-sm text-gray-800">${item.note}</p>
+                                <p class="text-xs text-gray-500">Paid by: <span class="font-semibold text-blue-600">${item.paidBy}</span></p>
+                            </div>
+                            <span class="font-bold text-red-500">-₹${item.amount}</span>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        // ওয়ালেট অ্যামোন্ট এডিট বা নতুন ফান্ড এড করার বাটন
+        editFundBtn.addEventListener('click', async function() {
+            let newAmount = prompt("Enter new Main Fund Amount (₹):", currentBalance);
+            if (newAmount !== null) {
+                newAmount = parseFloat(newAmount);
+                const walletRef = doc(db, "fund", "mainWallet");
+                await setDoc(walletRef, { balance: newAmount });
+            }
+        });
+
+        // ২. নতুন খরচ সাবমিট করার লজিক
+        expenseForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const paidBy = document.getElementById('paidBy').value;
+            const note = document.getElementById('note').value;
+
+            try {
+                // ডাটাবেসে খরচ সেভ করা
+                await addDoc(collection(db, "expenses"), {
+                    amount: amount,
+                    paidBy: paidBy,
+                    note: note,
+                    timestamp: new Date()
+                });
+
+                // মেইন ব্যালেন্স আপডেট করা
+                const newBalance = currentBalance - amount;
+                const walletRef = doc(db, "fund", "mainWallet");
+                await setDoc(walletRef, { balance: newBalance });
+
+                expenseForm.reset();
+            } catch (error) {
+                console.error("Error adding expense: ", error);
+                alert("Something went wrong!");
+            }
+        });
+
+        initData();
+    </script>
+</body>
+</html>
