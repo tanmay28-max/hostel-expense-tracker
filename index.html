@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="manifest.json">
     <!-- PWA / App Manifest Meta Tags -->
     <meta name="theme-color" content="#2563eb">
@@ -46,7 +49,6 @@
                 <div class="flex gap-2">
                     <input type="number" id="amount" placeholder="Amount (₹)" required
                         class="w-1/2 p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <!-- ড্রপডাউনের বদলে এখন ইচ্ছেমতো নাম টাইপ করার বক্স -->
                     <input type="text" id="paidBy" placeholder="Paid by (e.g. Tanmay)" required
                         class="w-1/2 p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
@@ -173,7 +175,6 @@
             submitBtn.disabled = true;
 
             try {
-                // সরাসরি ডাটাবেসে সেভ হবে, কোনো ছবি আপলোডের ঝামেলা না থাকায় এখন ইনস্ট্যান্ট কাজ করবে
                 await addDoc(collection(db, "expenses"), {
                     amount: amount,
                     paidBy: paidBy,
