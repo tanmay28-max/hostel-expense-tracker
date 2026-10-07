@@ -47,15 +47,22 @@
                     <input type="number" id="amount" placeholder="Amount (₹)" required
                         class="w-1/2 p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <select id="paidBy" class="w-1/2 p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <!-- এখানে সদস্যদের নাম আপনার ইচ্ছেমতো পরিবর্তন বা বাড়িয়ে নিতে পারবেন -->
                         <option value="Tanmay">Tanmay (Me)</option>
                         <option value="Bhai">Bhai</option>
+                        <option value="Sahid">Sahid</option>
                     </select>
                 </div>
                 <div>
                     <input type="text" id="note" placeholder="What was this for? (e.g. Bazar)" required
                         class="w-full p-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-                <button type="submit" 
+                <!-- বিল বা ছবি আপলোড অপশন -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs text-gray-500 font-medium">Attach Bill/Photo:</label>
+                    <input type="file" id="receiptImg" accept="image/*" class="text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100">
+                </div>
+                <button type="submit" id="submitBtn"
                     class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition">
                     Add Expense
                 </button>
@@ -67,9 +74,9 @@
     <!-- Firebase & App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-        // আপনার ফায়ারবেস কনফিগারেশন
         const firebaseConfig = {
             apiKey: "AIzaSyCwv7bNt8RpUFSfKf-1YtzcfPukP7So4",
             authDomain: "hostelexpense-c5dd8.firebaseapp.com",
@@ -82,27 +89,25 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const storage = getStorage(app);
 
         const balanceEl = document.getElementById('totalBalance');
         const expenseListEl = document.getElementById('expenseList');
         const expenseForm = document.getElementById('expenseForm');
         const editFundBtn = document.getElementById('editFundBtn');
+        const submitBtn = document.getElementById('submitBtn');
 
         let currentBalance = 0;
 
-        // ১. ফায়ারবেস থেকে রিয়েল-টাইম ব্যালেন্স এবং খরচ লোড করা
         async function initData() {
             const walletRef = doc(db, "fund", "mainWallet");
-            
             const docSnap = await getDoc(walletRef);
             if (!docSnap.exists()) {
-                // প্রথমবার যদি ওয়ালেট না থাকে, ইউজারের কাছ থেকে অ্যামোন্ট চেয়ে নেব
                 let initialAmount = prompt("Enter initial Main Fund Amount (₹):", "3000");
                 initialAmount = initialAmount ? parseFloat(initialAmount) : 3000;
                 await setDoc(walletRef, { balance: initialAmount });
             }
 
-            // রিয়েল-টাইম ব্যালেন্স আপডেট
             onSnapshot(walletRef, (doc) => {
                 if (doc.exists()) {
                     currentBalance = doc.data().balance;
@@ -110,7 +115,6 @@
                 }
             });
 
-            // রিয়েল-টাইম খরচ লিস্ট আপডেট
             const q = query(collection(db, "expenses"), orderBy("timestamp", "desc"));
             onSnapshot(q, (snapshot) => {
                 if (snapshot.empty) {
@@ -121,20 +125,52 @@
                 expenseListEl.innerHTML = '';
                 snapshot.forEach((docItem) => {
                     const item = docItem.data();
+                    const docId = docItem.id;
+                    
+                    // ফরম্যাট করা তারিখ ও সময়
+                    let formattedDate = "Just now";
+                    if (item.timestamp) {
+                        const dateObj = item.timestamp.toDate ? item.timestamp.toDate() : new Date(item.timestamp);
+                        formattedDate = dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                    }
+
+                    // ছবি থাকলে তার প্রিভিউ ট্যাগ
+                    let imgHtml = item.imageUrl ? `<a href="${item.imageUrl}" target="_blank" class="text-blue-500 text-xs underline mt-1 block">🖼️ View Bill/Photo</a>` : '';
+
                     expenseListEl.innerHTML += `
-                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border">
+                        <div class="flex justify-between items-start p-3 bg-gray-50 rounded-xl border">
                             <div>
                                 <p class="font-bold text-sm text-gray-800">${item.note}</p>
                                 <p class="text-xs text-gray-500">Paid by: <span class="font-semibold text-blue-600">${item.paidBy}</span></p>
+                                <p class="text-[10px] text-gray-400 mt-0.5">📅 ${formattedDate}</p>
+                                ${imgHtml}
                             </div>
-                            <span class="font-bold text-red-500">-₹${item.amount}</span>
+                            <div class="text-right flex flex-col items-end gap-1">
+                                <span class="font-bold text-red-500 text-sm">-₹${item.amount}</span>
+                                <button onclick="deleteExpense('${docId}', ${item.amount})" class="text-[10px] bg-red-100 text-red-600 hover:bg-red-200 px-2 py-0.5 rounded transition">Delete</button>
+                            </div>
                         </div>
                     `;
                 });
             });
         }
 
-        // ওয়ালেট অ্যামোন্ট এডিট বা নতুন ফান্ড এড করার বাটন
+        // খরচ ডিলিট করার ফাংশন
+        window.deleteExpense = async function(id, amount) {
+            if (confirm("Are you sure you want to delete this expense?")) {
+                try {
+                    await deleteDoc(doc(db, "expenses", id));
+                    // ব্যালেন্স ফিরিয়ে দেওয়া
+                    const restoredBalance = currentBalance + amount;
+                    const walletRef = doc(db, "fund", "mainWallet");
+                    await setDoc(walletRef, { balance: restoredBalance });
+                } catch (error) {
+                    console.error("Error deleting expense: ", error);
+                    alert("Failed to delete!");
+                }
+            }
+        }
+
         editFundBtn.addEventListener('click', async function() {
             let newAmount = prompt("Enter new Main Fund Amount (₹):", currentBalance);
             if (newAmount !== null) {
@@ -144,23 +180,34 @@
             }
         });
 
-        // ২. নতুন খরচ সাবমিট করার লজিক
         expenseForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const amount = parseFloat(document.getElementById('amount').value);
             const paidBy = document.getElementById('paidBy').value;
             const note = document.getElementById('note').value;
+            const fileInput = document.getElementById('receiptImg');
+
+            submitBtn.innerText = "Adding...";
+            submitBtn.disabled = true;
 
             try {
-                // ডাটাবেসে খরচ সেভ করা
+                let imageUrl = "";
+                // যদি ছবি সিলেক্ট করা থাকে তবে সেটি স্টোরেজে আপলোড করা
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    const storageRef = ref(storage, 'receipts/' + Date.now() + '_' + file.name);
+                    const snapshot = await uploadBytes(storageRef, file);
+                    imageUrl = await getDownloadURL(snapshot.ref);
+                }
+
                 await addDoc(collection(db, "expenses"), {
                     amount: amount,
                     paidBy: paidBy,
                     note: note,
+                    imageUrl: imageUrl,
                     timestamp: new Date()
                 });
 
-                // মেইন ব্যালেন্স আপডেট করা
                 const newBalance = currentBalance - amount;
                 const walletRef = doc(db, "fund", "mainWallet");
                 await setDoc(walletRef, { balance: newBalance });
@@ -169,6 +216,9 @@
             } catch (error) {
                 console.error("Error adding expense: ", error);
                 alert("Something went wrong!");
+            } finally {
+                submitBtn.innerText = "Add Expense";
+                submitBtn.disabled = false;
             }
         });
 
