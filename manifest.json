@@ -1,0 +1,15 @@
+{
+  "name": "Hostel Expense Tracker",
+  "short_name": "Hostel Expense",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/144/wallet--v1.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    }
+  ]
+}
