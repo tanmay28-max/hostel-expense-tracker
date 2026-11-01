@@ -1,0 +1,27 @@
+/* style.css */
+
+/* Setting the premium Google font */
+body { 
+    font-family: 'Poppins', sans-serif; 
+}
+
+/* Glassmorphism effect for the balance card */
+.glass-card { 
+    background: rgba(255, 255, 255, 0.95); 
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Dark mode version of the glassmorphism effect */
+@media (prefers-color-scheme: dark) {
+    .glass-card { 
+        background: rgba(30, 41, 59, 0.95); 
+        border-color: rgba(255, 255, 255, 0.1); 
+    }
+}
+
+/* Hiding the scrollbar for a cleaner look while keeping functionality */
+::-webkit-scrollbar { 
+    width: 0px; 
+    background: transparent; 
+}
