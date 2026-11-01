@@ -123,7 +123,10 @@ function calculateAndUpdateUI() {
                         </div>
                         <div>
                             <p class="font-bold text-sm text-slate-800 dark:text-slate-100">${item.note}</p>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">${isDeposit ? 'Added by' : 'Paid by'}: <span class="font-bold text-slate-700 dark:text-slate-300">${item.paidBy}</span></p>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">${isDeposit ? 'Added by' : 'Paid by'}: <span class="font-bold text-slate-700 dark:text-slate-300">${item.paidBy}</span></p>
+                                <span class="text-[9px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700/50 px-1.5 py-0.5 rounded pl-1">📅 ${formattedDate}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="text-right flex flex-col items-end gap-1">
@@ -150,7 +153,7 @@ function calculateAndUpdateUI() {
     if (!hasExpenses) expenseListEl.innerHTML = `<p class="text-slate-400 text-sm text-center mt-10 font-medium">No expenses found for this month.</p>`;
     if (!hasDeposits) depositListEl.innerHTML = `<p class="text-slate-400 text-sm text-center mt-10 font-medium">No deposits found for this month.</p>`;
 
-    // Add event listeners to delete buttons after they are rendered
+    // Add event listeners to delete buttons
     document.querySelectorAll('.delete-btn').forEach(button => {
         button.addEventListener('click', async function() {
             const id = this.getAttribute('data-id');
